@@ -6,8 +6,12 @@ Project has as a goal implement the task mentioned at below Kaggle [link](https:
 
 Project is written using Python 3.6
 
-Pandas package is required.
+PANDAS & MATPLOTLIB packages are required.
 
+Having configured your Python & PIP enviroment, please use command to install pandas and matplotlib
 ```
 pip install pandas
+```
+```
+pip install matplotlib
 ```
