@@ -8,10 +8,13 @@ Project is written using Python 3.6
 
 PANDAS & MATPLOTLIB packages are required.
 
-Having configured your Python & PIP enviroment, please use command to install pandas and matplotlib
+Having configured your Python & PIP enviroment, please use command to install pandas, matplotlib, sklearn
 ```
 pip install pandas
 ```
 ```
 pip install matplotlib
+```
+```
+pip install sklearn
 ```
