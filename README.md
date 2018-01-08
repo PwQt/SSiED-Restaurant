@@ -14,4 +14,3 @@ pip install pandas
 ```
 =======
 Project is written using Python 3+
->>>>>>> 23f1b4560f9db72e7c393a743e38e3060046698d
