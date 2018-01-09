@@ -1,11 +1,10 @@
-import csv
-import sys
 import pandas as pd
 import numpy as np
-import matplotlib as mtpllib
-from sklearn import *
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+import csv
+from statistics import mean, median,variance,stdev
 from datetime import datetime
-import re, glob
+import glob, re
 
 
 data = {
@@ -16,139 +15,108 @@ data = {
     'hr': pd.read_csv('data/hpg_reserve.csv'),
     'sir': pd.read_csv('data/store_id_relation.csv'),
     'ss': pd.read_csv('data/sample_submission.csv'),
-    'di': pd.read_csv('data/date_info.csv').rename(columns={'calendar_date':'visit_date'})
+    'di': pd.read_csv('data/date_info.csv')
     }
 
-data['hr'] = pd.merge(data['hr'], data['sir'], how='inner', on=['hpg_store_id'])
+data['hr'] = pd.merge(data['hr'], data['sir'], how='left', on=['hpg_store_id'])
+data['ar'] = pd.merge(data['ar'], data['sir'], how='left', on=['air_store_id'])
 
-print(data['ar'].head())
-print('======================================')
-print(data['hr'].head())
-print('======================================')
+data['hr']['visit_datetime'] = pd.to_datetime(data['hr']['visit_datetime'])
+data['hr']['visit_year'] = data['hr']['visit_datetime'].dt.year
+data['hr']['visit_month'] = data['hr']['visit_datetime'].dt.month
+data['hr']['visit_date'] = data['hr']['visit_datetime'].dt.date
+data['hr'] = data['hr'].drop('visit_datetime',axis=1)
 
-for df in ['ar','hr']:
-    data[df]['visit_datetime'] = pd.to_datetime(data[df]['visit_datetime'])
-    data[df]['visit_datetime'] = data[df]['visit_datetime'].dt.date
-    data[df]['reserve_datetime'] = pd.to_datetime(data[df]['reserve_datetime'])
-    data[df]['reserve_datetime'] = data[df]['reserve_datetime'].dt.date
-    data[df]['reserve_datetime_diff'] = data[df].apply(lambda r: (r['visit_datetime'] - r['reserve_datetime']).days, axis=1)
+data['ar']['visit_datetime'] = pd.to_datetime(data['ar']['visit_datetime'])
+data['ar']['visit_year'] = data['ar']['visit_datetime'].dt.year
+data['ar']['visit_month'] = data['ar']['visit_datetime'].dt.month
+data['ar']['visit_date'] = data['ar']['visit_datetime'].dt.date
+data['ar'] = data['ar'].drop('visit_datetime',axis=1)
 
-print(data['ar'].head())
-print('======================================')
+data['hr']['reserve_datetime'] = pd.to_datetime(data['hr']['reserve_datetime'])
+data['hr']['reserve_year'] = data['hr']['reserve_datetime'].dt.year
+data['hr']['reserve_month'] = data['hr']['reserve_datetime'].dt.month
+data['hr']['reserve_date'] = data['hr']['reserve_datetime'].dt.date
+data['hr'] = data['hr'].drop('reserve_datetime',axis=1)
 
-for df in ['ar','hr']:
-    tmp1 = data[df].groupby(['air_store_id','visit_datetime'], as_index=False)[['reserve_datetime_diff', 'reserve_visitors']].sum().rename(columns={'visit_datetime':'visit_date', 'reserve_visitors':'rv1'})
-    tmp2 = data[df].groupby(['air_store_id','visit_datetime'], as_index=False)[['reserve_datetime_diff', 'reserve_visitors']].mean().rename(columns={'visit_datetime':'visit_date', 'reserve_visitors':'rv2'})
-    data[df] = pd.merge(tmp1, tmp2, how='inner', on=['air_store_id','visit_date'])
+data['ar']['reserve_datetime'] = pd.to_datetime(data['ar']['reserve_datetime'])
+data['ar']['reserve_year'] = data['ar']['reserve_datetime'].dt.year
+data['ar']['reserve_month'] = data['ar']['reserve_datetime'].dt.month
+data['ar']['reserve_date'] = data['ar']['reserve_datetime'].dt.date
+data['ar'] = data['ar'].drop('reserve_datetime',axis=1)
 
+data['avd']['visit_datetime'] = pd.to_datetime(data['avd']['visit_date'])
+data['avd']['visit_year'] = data['avd']['visit_datetime'].dt.year
+data['avd']['visit_month'] = data['avd']['visit_datetime'].dt.month
+data['avd']['visit_date'] = data['avd']['visit_datetime'].dt.date
+data['avd'] = data['avd'].rename(columns={'visit_date':'visit_date'})
+data['avd'] = data['avd'].drop('visit_datetime',axis=1)
 
-print(tmp1.head())
-print('======================================')
-print(tmp2.head())
-print('======================================')
+data['di']['visit_day'] = data['di']['calendar_date'].map(lambda x: (x.split('-')[2]))
+data['di']['mnd_flg'] = data['di']['visit_day'].map(lambda x: 1 if int(x)>=25 else 0)
+data['di']['calendar_datetime'] = pd.to_datetime(data['di']['calendar_date'])
+data['di']['visit_year'] = data['di']['calendar_datetime'].dt.year
+data['di']['visit_month'] = data['di']['calendar_datetime'].dt.month
+data['di']['calendar_date'] = data['di']['calendar_datetime'].dt.date
+data['di'] = data['di'].rename(columns={'calendar_date':'visit_date'})
+data['di'] = data['di'].rename(columns={'calendar_datetime':'visit_datetime'})
+non_bu = data['di'].apply((lambda x:(x.day_of_week=='Sunday' or x.day_of_week=='Saturday'or x.day_of_week=='Friday') or x.holiday_flg==1), axis=1)
+data['di'] = data['di'].assign(non_buis_day = non_bu)
+data['di'] = data['di'].drop('visit_datetime',axis=1)
 
-data['avd']['visit_date'] = pd.to_datetime(data['avd']['visit_date'])
-data['avd']['dow'] = data['avd']['visit_date'].dt.dayofweek
-data['avd']['year'] = data['avd']['visit_date'].dt.year
-data['avd']['month'] = data['avd']['visit_date'].dt.month
-data['avd']['visit_date'] = data['avd']['visit_date'].dt.date
-
-data['ss']['visit_date'] = data['ss']['id'].map(lambda x: str(x).split('_')[2])
 data['ss']['air_store_id'] = data['ss']['id'].map(lambda x: '_'.join(x.split('_')[:2]))
-data['ss']['visit_date'] = pd.to_datetime(data['ss']['visit_date'])
-data['ss']['dow'] = data['ss']['visit_date'].dt.dayofweek
-data['ss']['year'] = data['ss']['visit_date'].dt.year
-data['ss']['month'] = data['ss']['visit_date'].dt.month
-data['ss']['visit_date'] = data['ss']['visit_date'].dt.date
+data['ss']['visit_datetime'] = data['ss']['id'].map(lambda x: str(x).split('_')[2])
+data['ss']['visit_datetime'] = pd.to_datetime(data['ss']['visit_datetime'])
+data['ss']['visit_year'] = data['ss']['visit_datetime'].dt.year
+data['ss']['visit_month'] = data['ss']['visit_datetime'].dt.month
+data['ss']['visit_date'] = data['ss']['visit_datetime'].dt.date
 
-unique_stores = data['ss']['air_store_id'].unique()
-stores = pd.concat([pd.DataFrame({'air_store_id': unique_stores, 'dow': [i]*len(unique_stores)}) for i in range(7)], axis=0, ignore_index=True).reset_index(drop=True)
+data['ss'] = pd.merge(data['ss'], data['di'], how = 'left', on = ['visit_date','visit_year','visit_month'])
+data['ss'] = pd.merge(data['ss'], data['sir'], how = 'left', on = ['air_store_id'])
+data['ss'] = pd.merge(data['ss'], data['asi'], how = 'left', on = ['air_store_id'])
+data['ss'] = pd.merge(data['ss'], data['hsi'], how = 'left', on = ['hpg_store_id'])
+data['ss'] = data['ss'].drop('visitors',axis=1)
 
-tmp = data['avd'].groupby(['air_store_id','dow'], as_index=False)['visitors'].min().rename(columns={'visitors':'min_visitors'})
-stores = pd.merge(stores, tmp, how='left', on=['air_store_id','dow'])
-tmp = data['avd'].groupby(['air_store_id','dow'], as_index=False)['visitors'].mean().rename(columns={'visitors':'mean_visitors'})
-stores = pd.merge(stores, tmp, how='left', on=['air_store_id','dow'])
-tmp = data['avd'].groupby(['air_store_id','dow'], as_index=False)['visitors'].median().rename(columns={'visitors':'median_visitors'})
-stores = pd.merge(stores, tmp, how='left', on=['air_store_id','dow'])
-tmp = data['avd'].groupby(['air_store_id','dow'], as_index=False)['visitors'].max().rename(columns={'visitors':'max_visitors'})
-stores = pd.merge(stores, tmp, how='left', on=['air_store_id','dow'])
-tmp = data['avd'].groupby(['air_store_id','dow'], as_index=False)['visitors'].count().rename(columns={'visitors':'count_observations'})
+data['ss'] = data['ss'].fillna(0)
+print('==================================================')
+print("sample_submission1")
+print(data['ss'])
+print('==================================================')
 
-stores = pd.merge(stores, tmp, how='left', on=['air_store_id','dow'])
-print(stores.head())
-print('======================================')
+data['avd'] = pd.merge(data['avd'], data['di'], how = 'left',on = ['visit_date','visit_year','visit_month'])
+data['avd'] = pd.merge(data['avd'], data['sir'], how = 'left', on = ['air_store_id'])
+data['avd'] = pd.merge(data['avd'], data['asi'], how = 'left', on = ['air_store_id'])
+data['avd'] = pd.merge(data['avd'], data['hsi'], how = 'left', on = ['hpg_store_id'])
 
-stores = pd.merge(stores, data['asi'], how='left', on=['air_store_id'])
-print(stores.head())
-print('======================================')
-
-lbl = preprocessing.LabelEncoder()
-stores['air_genre_name'] = lbl.fit_transform(stores['air_genre_name'])
-stores['air_area_name'] = lbl.fit_transform(stores['air_area_name'])
-print(stores.head())
-print('======================================')
-
-data['di']['visit_date'] = pd.to_datetime(data['di']['visit_date'])
-data['di']['day_of_week'] = lbl.fit_transform(data['di']['day_of_week'])
-data['di']['visit_date'] = data['di']['visit_date'].dt.date
-print(data['di'].head())
-print('======================================')
+df_ah_dh = data['avd'].groupby(['air_store_id','holiday_flg','day_of_week'])['visitors'].median().reset_index()
+df_ah_wh = data['avd'].groupby(['air_store_id','non_buis_day'])['visitors'].median().reset_index()
 
 
-train = pd.merge(data['avd'], data['di'], how='left', on=['visit_date'])
-test = pd.merge(data['ss'], data['di'], how='left', on=['visit_date'])
-print(train.head())
-print('======================================')
-print(test.head())
-print('======================================')
+ss2 = pd.merge(data['ss'],df_ah_dh, how='left', on=['air_store_id','holiday_flg','day_of_week'])
+print('==================================================')
+print("sample_submission2")
+print(ss2)
+print(ss2.isnull().sum())
+print('==================================================')
 
-for df in ['ar','hr']:
-    train = pd.merge(train, data[df], how='left', on=['air_store_id','visit_date'])
-    test = pd.merge(test, data[df], how='left', on=['air_store_id','visit_date'])
-print(train.head())
-print('======================================')
-print(test.head())
-print('======================================')
+ss2_nan = ss2.visitors.isnull()
+ss2_null = ss2[ss2_nan]
+ss2_null = ss2_null.drop('visitors',axis=1)
 
-train['sir'] = train.apply(lambda r: '_'.join([str(r['air_store_id']), str(r['visit_date'])]), axis=1)
-train['total_reserv_sum'] = train['rv1_x'] + train['rv1_y']
-train['total_reserv_mean'] = (train['rv2_x'] + train['rv2_y']) / 2
-test['total_reserv_sum'] = test['rv1_x'] + test['rv1_y']
-test['total_reserv_mean'] = (test['rv2_x'] + test['rv2_y']) / 2
+ss3 = pd.merge(ss2_null,df_ah_wh, how='left', on=['air_store_id','non_buis_day'])
+print('==================================================')
+print("sample_submission3")
+print(ss3)
+print(ss3.isnull().sum())
+print('==================================================')
 
-col = [c for c in train if c not in ['sir', 'air_store_id','visit_date','visitors']]
-print(train.describe())
-print('======================================')
-print(train.head())
-print('======================================')
-print(train.columns)
-print('======================================')
-
-train = train.fillna(-1)
-test = test.fillna(-1)
-
-def RMSLE(y, pred):
-    return metrics.mean_squared_error(y, pred)**0.5
+ss2 = ss2.dropna()
+ss3 = ss3.dropna()
 
 
-from sklearn.model_selection import train_test_split
-X_train, X_val, y_train, y_val = train_test_split(train[col], train['visitors'], test_size=0.33, random_state=42)
-print(X_train.head())
-print(len(X_train))
-print(len(X_val))
-print('======================================')
+sub = pd.concat([ss2,ss3],ignore_index = True)
 
-model1 = ensemble.GradientBoostingRegressor(learning_rate = 0.1, n_estimators = 375, max_depth = 6, min_samples_leaf = 2)
-
-model1.fit(train[col], np.log1p(train['visitors'].values))
-
-print('RMSE GradientBoostingRegressor: ', RMSLE(np.log1p(train['visitors'].values), model1.predict(train[col])))
-print('======================================')
-test['visitors'] = model1.predict(test[col])
-test['visitors'] = np.expm1(test['visitors']).clip(lower=0.)
-sub1 = test[['id','visitors']].copy()
-
-print(sub1.head())
-print('======================================')
-
-sub1[['id', 'visitors']].to_csv('submission.csv', index=False)
+submit = pd.concat([sub.id,sub.visitors],axis=1)
+submit.columns = ['id','visitors']
+print(submit)
+submit.to_csv('submit.csv', index=False)
