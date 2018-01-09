@@ -6,7 +6,7 @@ from statistics import mean, median,variance,stdev
 from datetime import datetime
 import glob, re
 
-
+## Import danych z pliku CSV
 data = {
     'avd': pd.read_csv('data/air_visit_data.csv'),
     'asi': pd.read_csv('data/air_store_info.csv'),
@@ -18,33 +18,40 @@ data = {
     'di': pd.read_csv('data/date_info.csv')
     }
 
+## Utworzenie bazy na tabelach rezerwacji w restauracjach z tabelą relacji pomiedzy restauracjami
 data['hr'] = pd.merge(data['hr'], data['sir'], how='left', on=['hpg_store_id'])
 data['ar'] = pd.merge(data['ar'], data['sir'], how='left', on=['air_store_id'])
 
+## Rozdzielenie kolumn DateTime na Rok | Miesiąc | Data (format YYYY-MM-DD). Po rozdzieleniu usuniecie starych kolumn
+## Dla daty wizyty w HPG
 data['hr']['visit_datetime'] = pd.to_datetime(data['hr']['visit_datetime'])
 data['hr']['visit_year'] = data['hr']['visit_datetime'].dt.year
 data['hr']['visit_month'] = data['hr']['visit_datetime'].dt.month
 data['hr']['visit_date'] = data['hr']['visit_datetime'].dt.date
 data['hr'] = data['hr'].drop('visit_datetime',axis=1)
 
+## Dla daty wizyty w AIR
 data['ar']['visit_datetime'] = pd.to_datetime(data['ar']['visit_datetime'])
 data['ar']['visit_year'] = data['ar']['visit_datetime'].dt.year
 data['ar']['visit_month'] = data['ar']['visit_datetime'].dt.month
 data['ar']['visit_date'] = data['ar']['visit_datetime'].dt.date
 data['ar'] = data['ar'].drop('visit_datetime',axis=1)
 
+## Dla rezerwacji w HPG
 data['hr']['reserve_datetime'] = pd.to_datetime(data['hr']['reserve_datetime'])
 data['hr']['reserve_year'] = data['hr']['reserve_datetime'].dt.year
 data['hr']['reserve_month'] = data['hr']['reserve_datetime'].dt.month
 data['hr']['reserve_date'] = data['hr']['reserve_datetime'].dt.date
 data['hr'] = data['hr'].drop('reserve_datetime',axis=1)
 
+## Dla rezerwacji w AIR
 data['ar']['reserve_datetime'] = pd.to_datetime(data['ar']['reserve_datetime'])
 data['ar']['reserve_year'] = data['ar']['reserve_datetime'].dt.year
 data['ar']['reserve_month'] = data['ar']['reserve_datetime'].dt.month
 data['ar']['reserve_date'] = data['ar']['reserve_datetime'].dt.date
 data['ar'] = data['ar'].drop('reserve_datetime',axis=1)
 
+## Dla daty wizyty w AIR
 data['avd']['visit_datetime'] = pd.to_datetime(data['avd']['visit_date'])
 data['avd']['visit_year'] = data['avd']['visit_datetime'].dt.year
 data['avd']['visit_month'] = data['avd']['visit_datetime'].dt.month
@@ -52,6 +59,7 @@ data['avd']['visit_date'] = data['avd']['visit_datetime'].dt.date
 data['avd'] = data['avd'].rename(columns={'visit_date':'visit_date'})
 data['avd'] = data['avd'].drop('visit_datetime',axis=1)
 
+## Podzielenie pliku date_info.csv przechowującego informacje o tym czy dana data jest świetem/weekendem, na tego samego typu wygląd co dane poprzednie
 data['di']['visit_day'] = data['di']['calendar_date'].map(lambda x: (x.split('-')[2]))
 data['di']['mnd_flg'] = data['di']['visit_day'].map(lambda x: 1 if int(x)>=25 else 0)
 data['di']['calendar_datetime'] = pd.to_datetime(data['di']['calendar_date'])
@@ -64,8 +72,13 @@ non_bu = data['di'].apply((lambda x:(x.day_of_week=='Sunday' or x.day_of_week=='
 data['di'] = data['di'].assign(non_buis_day = non_bu)
 data['di'] = data['di'].drop('visit_datetime',axis=1)
 
+''' Rozdzielenie kolumny ID z danych testowych na nastepujace kolumny
+id_restauracji
+data_wizyty
+'''
 data['ss']['air_store_id'] = data['ss']['id'].map(lambda x: '_'.join(x.split('_')[:2]))
 data['ss']['visit_datetime'] = data['ss']['id'].map(lambda x: str(x).split('_')[2])
+## Podzielenie daty w celu odpowiadania wyglądowi danym szkolącym
 data['ss']['visit_datetime'] = pd.to_datetime(data['ss']['visit_datetime'])
 data['ss']['visit_year'] = data['ss']['visit_datetime'].dt.year
 data['ss']['visit_month'] = data['ss']['visit_datetime'].dt.month
